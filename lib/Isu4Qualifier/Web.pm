@@ -12,14 +12,6 @@ use Data::MessagePack;
 
 my $mp = Data::MessagePack->new;
 
-our $memd = Cache::Memcached::Fast->new({
-    servers => [ { address => 'localhost:11211' } ],
-    serialize_methods => [
-        sub { $mp->pack($_[0]) },
-        sub { $mp->unpack($_[0]) },
-    ],
-});
-
 sub config {
   my ($self) = @_;
   $self->{_config} ||= {
@@ -28,7 +20,16 @@ sub config {
   };
 };
 
-sub memd { $memd }
+sub memd {
+  my $self = shift;
+  $self->{_membed} ||= Cache::Memcached::Fast->new({
+    servers => [ { address => 'localhost:11211' } ],
+    serialize_methods => [
+      sub { $mp->pack($_[0]) },
+      sub { $mp->unpack($_[0]) },
+    ],
+  });
+}
 
 sub db {
   my ($self) = @_;
