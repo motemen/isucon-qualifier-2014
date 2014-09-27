@@ -29,22 +29,23 @@ builder {
 #   };
 # };
   enable 'ReverseProxy';
-  enable 'Session',
-    state => Plack::Session::State::Cookie->new(
-      httponly    => 1,
-      session_key => "isu4_session",
-    ),
-    store => Plack::Session::Store::Cache->new(
-      cache => do {
-        Cache::Memcached::Fast->new({
-          servers => [ { address => 'localhost:11211' } ],
-          serialize_methods => [
-            sub { $mp->pack($_[0]) },
-            sub { $mp->unpack($_[0]) },
-          ],
-        })
-      },
-    ),
-    ;
+  enable "Session::Cookie", secret => 'unko';
+# enable 'Session',
+#   state => Plack::Session::State::Cookie->new(
+#     httponly    => 1,
+#     session_key => "isu4_session",
+#   ),
+#   store => Plack::Session::Store::Cache->new(
+#     cache => do {
+#       Cache::Memcached::Fast->new({
+#         servers => [ { address => 'localhost:11211' } ],
+#         serialize_methods => [
+#           sub { $mp->pack($_[0]) },
+#           sub { $mp->unpack($_[0]) },
+#         ],
+#       })
+#     },
+#   ),
+#   ;
   $app;
 };
