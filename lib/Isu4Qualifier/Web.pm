@@ -93,13 +93,14 @@ sub current_user {
 };
 
 sub last_login {
-  my ($self, $user_id) = @_;
+  my ($self, $user) = @_;
 
-  my $logs = $self->db->select_all(
-   'SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2',
-   $user_id);
+  +{
+    login      => $user->{login},
+    ip         => $user->{last_ip}           || $user->{current_ip},
+    created_at => $user->{last_logged_in_at} || $user->{current_logged_in_at},
+  };
 
-  @$logs[-1];
 };
 
 sub banned_ips {
@@ -128,22 +129,22 @@ sub login_log {
   my $user_id = $user && $user->{id};
 
   my $txn = $self->db->txn_scope;
-  $self->db->query(
-    'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
-    $user_id, $login, $ip, ($succeeded ? 1 : 0)
-  ) if $succeeded;
 
   if ($succeeded) {
     $self->db->query(
       'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
       $ip
     );
-    if ($user && $user->{recent_login_failures_cnt} > 0) {
-        $self->db->query(
-          'UPDATE users SET recent_login_failures_cnt = 0 WHERE id = ?',
-          $user_id
-        );
-    }
+    $self->db->query(
+      'UPDATE users SET
+        recent_login_failures_cnt = 0,
+        last_logged_in_at    = current_logged_in_at,
+        last_ip              = current_ip,
+        current_logged_in_at = NOW(),
+        current_ip           = ?
+      WHERE id = ?',
+      $ip, $user_id
+    );
   } else {
     $self->db->query(
       'INSERT INTO ip_login_failure (`ip`, `cnt`) VALUES (?,1) ON DUPLICATE KEY UPDATE `cnt` = `cnt` + 1',
@@ -221,7 +222,7 @@ get '/mypage' => [qw(session)] => sub {
   my $msg;
 
   if ($user) {
-    $c->render('mypage.tx', { last_login => $self->last_login($user_id) });
+    $c->render('mypage.tx', { last_login => $self->last_login($user) });
   }
   else {
     $self->set_flash($c, "You must be logged in");
