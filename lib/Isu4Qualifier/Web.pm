@@ -161,10 +161,18 @@ sub login_log {
       'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
       $ip
     );
+    $self->db->query(
+      'UPDATE user SET recent_login_failures_cnt = 0 WHERE id = ?',
+      $user_id
+    );
   } else {
     $self->db->query(
       'INSERT INTO ip_login_failure (`ip`, `cnt`) VALUES (?,1) ON DUPLICATE KEY UPDATE `cnt` = `cnt` + 1',
       $ip
+    );
+    $self->db->query(
+      'UPDATE user SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
+      $user_id
     );
   }
 };
