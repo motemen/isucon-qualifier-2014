@@ -9,6 +9,7 @@ use Plack::Session::Store::File;
 use Data::MessagePack;
 use Cache::Memcached::Fast;
 use Plack::Session::Store::Cache;
+use MIME::Base64;
 
 my $root_dir = File::Basename::dirname(__FILE__);
 my $session_dir = "/tmp/isu4_session_plack";
@@ -29,7 +30,15 @@ builder {
 #   };
 # };
   enable 'ReverseProxy';
-  enable "Session::Cookie", secret => 'unko';
+
+  enable "Session::Cookie", secret => 'unko',
+    serializer => sub {
+        MIME::Base64::encode($mp->pack($_[0]), '');
+    },
+    deserializer => sub {
+        $mp->unpack(MIME::Base64::decode($_[0]));
+    };
+  
 # enable 'Session',
 #   state => Plack::Session::State::Cookie->new(
 #     httponly    => 1,
