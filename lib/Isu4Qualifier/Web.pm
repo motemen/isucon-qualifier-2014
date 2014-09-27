@@ -162,15 +162,16 @@ sub login_log {
       WHERE id = ?',
       $ip, $user_id
     );
+    $txn->commit;
   } else {
-    $self->memd->add(ipkey($ip), 0);
-    $self->memd->incr(ipkey($ip), 1);
     $self->db->query(
       'UPDATE users SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
       $user_id
     ) if defined $user_id;
+    $txn->commit;
+    $self->memd->add(ipkey($ip), 0);
+    $self->memd->incr(ipkey($ip), 1);
   }
-  $txn->commit;
 };
 
 sub set_flash {
