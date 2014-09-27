@@ -4,8 +4,9 @@ requires "JSON::XS";
 requires "Digest::SHA";
 requires "File::Temp";
 requires "Time::Piece";
+requires "HTTP::Parser::XS";
 
 requires "DBD::mysql";
-requires "Starman";
+requires "Starlet";
 requires "Plack::Session";
 requires "Data::Dumper";
