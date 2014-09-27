@@ -53,8 +53,9 @@ sub ip_banned {
   my $row = $self->db->select_row(
     'SELECT ip, cnt FROM ip_login_failure WHERE ip = ?', $ip
   );
+  $row ||= {};
 
-  $self->config->{ip_ban_threshold} <= $row->{cnt};
+  $self->config->{ip_ban_threshold} <= ($row->{cnt} || 0);
 };
 
 sub attempt_login {
