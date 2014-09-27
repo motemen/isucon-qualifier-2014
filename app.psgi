@@ -7,10 +7,13 @@ use Isu4Qualifier::Web;
 use Plack::Session::State::Cookie;
 use Plack::Session::Store::File;
 use Devel::NYTProf;
+use Devel::KYTProf;
+Devel::KYTProf->namespace_regex(qr/^Isu4Qualifier(?:::Web)?/);
 
 my $root_dir = File::Basename::dirname(__FILE__);
 my $session_dir = "/tmp/isu4_session_plack";
 mkdir $session_dir;
+
 
 my $app = Isu4Qualifier::Web->psgi($root_dir);
 builder {
