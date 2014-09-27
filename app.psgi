@@ -13,16 +13,16 @@ mkdir $session_dir;
 
 my $app = Isu4Qualifier::Web->psgi($root_dir);
 builder {
-  enable sub {
-    my $app = shift;
-    sub {
-      my $env = shift;
-      DB::enable_profile();
-      my $res = $app->($env);
-      DB::disable_profile();
-      return $res;
-    };
-  };
+# enable sub {
+#   my $app = shift;
+#   sub {
+#     my $env = shift;
+#     DB::enable_profile();
+#     my $res = $app->($env);
+#     DB::disable_profile();
+#     return $res;
+#   };
+# };
   enable 'ReverseProxy';
   enable 'Static',
     path => qr!^/(?:stylesheets|images)/!,
