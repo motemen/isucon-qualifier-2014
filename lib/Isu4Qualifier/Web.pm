@@ -63,21 +63,21 @@ sub attempt_login {
   my $user = $self->db->select_row('SELECT * FROM users WHERE login = ?', $login);
 
   if ($self->ip_banned($ip)) {
-    $self->login_log(0, $login, $ip, $user ? $user->{id} : undef);
+    $self->login_log(0, $login, $ip, $user);
     return undef, 'banned';
   }
 
   if ($self->user_locked($user)) {
-    $self->login_log(0, $login, $ip, $user->{id});
+    $self->login_log(0, $login, $ip, $user);
     return undef, 'locked';
   }
 
   if ($user && calculate_password_hash($password, $user->{salt}) eq $user->{password_hash}) {
-    $self->login_log(1, $login, $ip, $user->{id});
+    $self->login_log(1, $login, $ip, $user);
     return $user, undef;
   }
   elsif ($user) {
-    $self->login_log(0, $login, $ip, $user->{id});
+    $self->login_log(0, $login, $ip, $user);
     return undef, 'wrong_password';
   }
   else {
@@ -124,7 +124,9 @@ sub locked_users {
 };
 
 sub login_log {
-  my ($self, $succeeded, $login, $ip, $user_id) = @_;
+  my ($self, $succeeded, $login, $ip, $user) = @_;
+  my $user_id = $user && $user->{id};
+
   my $txn = $self->db->txn_scope;
   $self->db->query(
     'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
@@ -135,10 +137,12 @@ sub login_log {
       'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
       $ip
     );
-    $self->db->query(
-      'UPDATE users SET recent_login_failures_cnt = 0 WHERE id = ?',
-      $user_id
-    );
+    if ($user && $user->{recent_login_failures_cnt} > 0) {
+        $self->db->query(
+          'UPDATE users SET recent_login_failures_cnt = 0 WHERE id = ?',
+          $user_id
+        );
+    }
   } else {
     $self->db->query(
       'INSERT INTO ip_login_failure (`ip`, `cnt`) VALUES (?,1) ON DUPLICATE KEY UPDATE `cnt` = `cnt` + 1',
@@ -147,7 +151,7 @@ sub login_log {
     $self->db->query(
       'UPDATE users SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
       $user_id
-    );
+    ) if defined $user_id;
   }
   $txn->commit;
 };
