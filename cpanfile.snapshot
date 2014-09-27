@@ -74,6 +74,13 @@ DISTRIBUTIONS
       strict 0
       version 0.88
       warnings 0
+  Cache-Memcached-Fast-0.22
+    pathname: K/KR/KROKI/Cache-Memcached-Fast-0.22.tar.gz
+    provides:
+      Cache::Memcached::Fast 0.22
+    requirements:
+      ExtUtils::MakeMaker 0
+      Test::More 0
   Capture-Tiny-0.25
     pathname: D/DA/DAGOLDEN/Capture-Tiny-0.25.tar.gz
     provides:
