@@ -104,25 +104,12 @@ sub last_login {
 
 sub banned_ips {
   my ($self) = @_;
-  my @ips;
   my $threshold = $self->config->{ip_ban_threshold};
 
-  my $not_succeeded = $self->db->select_all('SELECT ip FROM (SELECT ip, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY ip) AS t0 WHERE t0.max_succeeded = 0 AND t0.cnt >= ?', $threshold);
-
-  foreach my $row (@$not_succeeded) {
-    push @ips, $row->{ip};
-  }
-
-  my $last_succeeds = $self->db->select_all('SELECT ip, MAX(id) AS last_login_id FROM login_log WHERE succeeded = 1 GROUP by ip');
-
-  foreach my $row (@$last_succeeds) {
-    my $count = $self->db->select_one('SELECT COUNT(1) AS cnt FROM login_log WHERE ip = ? AND ? < id', $row->{ip}, $row->{last_login_id});
-    if ($threshold <= $count) {
-      push @ips, $row->{ip};
-    }
-  }
-
-  \@ips;
+  my $ip_failures = $self->db->select_all('SELECT ip,cnt FROM ip_login_failure');
+  return [
+      map { $_->{ip} } grep { $_->{cnt} >= $threshold } @$ip_failures
+  ];
 };
 
 sub locked_users {
@@ -130,22 +117,10 @@ sub locked_users {
   my @user_ids;
   my $threshold = $self->config->{user_lock_threshold};
 
-  my $not_succeeded = $self->db->select_all('SELECT user_id, login FROM (SELECT user_id, login, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY user_id) AS t0 WHERE t0.user_id IS NOT NULL AND t0.max_succeeded = 0 AND t0.cnt >= ?', $threshold);
-
-  foreach my $row (@$not_succeeded) {
-    push @user_ids, $row->{login};
-  }
-
-  my $last_succeeds = $self->db->select_all('SELECT user_id, login, MAX(id) AS last_login_id FROM login_log WHERE user_id IS NOT NULL AND succeeded = 1 GROUP BY user_id');
-
-  foreach my $row (@$last_succeeds) {
-    my $count = $self->db->select_one('SELECT COUNT(1) AS cnt FROM login_log WHERE user_id = ? AND ? < id', $row->{user_id}, $row->{last_login_id});
-    if ($threshold <= $count) {
-      push @user_ids, $row->{login};
-    }
-  }
-
-  \@user_ids;
+  my $users = $self->db->select_all('SELECT login, recent_login_failures_cnt FROM users');
+  return [
+      map { $_->{login} } grep { $_->{recent_login_failures_cnt} >= $threshold } @$users
+  ];
 };
 
 sub login_log {
