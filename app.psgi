@@ -29,9 +29,6 @@ builder {
 #   };
 # };
   enable 'ReverseProxy';
-  enable 'Static',
-    path => qr!^/(?:stylesheets|images)/!,
-    root => $root_dir . '/public';
   enable 'Session',
     state => Plack::Session::State::Cookie->new(
       httponly    => 1,

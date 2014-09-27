@@ -5,6 +5,7 @@ requires "Digest::SHA";
 requires "File::Temp";
 requires "Time::Piece";
 requires "HTTP::Parser::XS";
+requires "Server::Starter";
 
 requires "DBD::mysql";
 requires "Starlet";
