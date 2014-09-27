@@ -149,6 +149,7 @@ sub locked_users {
 
 sub login_log {
   my ($self, $succeeded, $login, $ip, $user_id) = @_;
+  my $txn = $self->db->txn_scope;
   $self->db->query(
     'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
     $user_id, $login, $ip, ($succeeded ? 1 : 0)
@@ -172,6 +173,7 @@ sub login_log {
       $user_id
     );
   }
+  $txn->commit;
 };
 
 sub set_flash {
