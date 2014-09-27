@@ -131,7 +131,8 @@ sub login_log {
   $self->db->query(
     'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
     $user_id, $login, $ip, ($succeeded ? 1 : 0)
-  );
+  ) if $succeeded;
+
   if ($succeeded) {
     $self->db->query(
       'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
