@@ -45,7 +45,7 @@ sub calculate_password_hash {
 sub user_locked {
   my ($self, $user) = @_;
 
-  $self->config->{user_lock_threshold} <= $user->recent_login_failures_cnt;
+  $self->config->{user_lock_threshold} <= $user->{recent_login_failures_cnt};
 };
 
 sub ip_banned {
@@ -160,7 +160,7 @@ sub login_log {
       $ip
     );
     $self->db->query(
-      'UPDATE user SET recent_login_failures_cnt = 0 WHERE id = ?',
+      'UPDATE users SET recent_login_failures_cnt = 0 WHERE id = ?',
       $user_id
     );
   } else {
@@ -169,7 +169,7 @@ sub login_log {
       $ip
     );
     $self->db->query(
-      'UPDATE user SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
+      'UPDATE users SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
       $user_id
     );
   }
