@@ -156,6 +156,17 @@ sub login_log {
     'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
     $user_id, $login, $ip, ($succeeded ? 1 : 0)
   );
+  if ($succeeded) {
+    $self->db->query(
+      'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
+      $ip
+    );
+  } else {
+    $self->db->query(
+      'INSERT INTO ip_login_failure (`ip`, `cnt`) VALUES (?,1) ON DUPLICATE KEY UPDATE `cnt` = `cnt` + 1',
+      $ip
+    );
+  }
 };
 
 sub set_flash {
