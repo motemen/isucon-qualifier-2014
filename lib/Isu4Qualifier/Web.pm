@@ -156,6 +156,18 @@ sub login_log {
     'INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (NOW(),?,?,?,?)',
     $user_id, $login, $ip, ($succeeded ? 1 : 0)
   );
+
+  if ($succeeded) {
+    $self->db->query(
+      'UPDATE user SET recent_login_failues_cnt = 0 WHERE id = ?',
+      $user_id
+    );
+  } else {
+    $self->db->query(
+      'UPDATE user SET recent_login_failues_cnt = recent_login_failues_cnt + 1 WHERE id = ?',
+      $user_id
+    );
+  }
 };
 
 sub set_flash {
