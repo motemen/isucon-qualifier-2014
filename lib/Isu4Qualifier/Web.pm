@@ -7,6 +7,10 @@ use Kossy;
 use DBIx::Sunny;
 use Digest::SHA qw/ sha256_hex /;
 use Data::Dumper;
+use Cache::Memcached::Fast;
+use Data::MessagePack;
+
+my $mp = Data::MessagePack->new;
 
 sub config {
   my ($self) = @_;
@@ -15,6 +19,17 @@ sub config {
     ip_ban_threshold => $ENV{'ISU4_IP_BAN_THRESHOLD'} || 10
   };
 };
+
+sub memd {
+  my $self = shift;
+  $self->{_membed} ||= Cache::Memcached::Fast->new({
+    servers => [ { address => 'localhost:11211' } ],
+    serialize_methods => [
+      sub { $mp->pack($_[0]) },
+      sub { $mp->unpack($_[0]) },
+    ],
+  });
+}
 
 sub db {
   my ($self) = @_;
@@ -50,12 +65,8 @@ sub user_locked {
 
 sub ip_banned {
   my ($self, $ip) = @_;
-  my $row = $self->db->select_row(
-    'SELECT ip, cnt FROM ip_login_failure WHERE ip = ?', $ip
-  );
-  $row ||= {};
-
-  $self->config->{ip_ban_threshold} <= ($row->{cnt} || 0);
+  my $count = $self->memd->get(ipkey($ip)) || 0;
+  $self->config->{ip_ban_threshold} <= $count;
 };
 
 sub attempt_login {
@@ -107,9 +118,9 @@ sub banned_ips {
   my ($self) = @_;
   my $threshold = $self->config->{ip_ban_threshold};
 
-  my $ip_failures = $self->db->select_all('SELECT ip,cnt FROM ip_login_failure');
+  my $ip_failures = $self->db->select_all('SELECT ip FROM ip_login_failure');
   return [
-      map { $_->{ip} } grep { $_->{cnt} >= $threshold } @$ip_failures
+      grep { $self->memd->get(ipkey($_)) >= $threshold } map { $_->{ip} } @$ip_failures
   ];
 };
 
@@ -124,17 +135,23 @@ sub locked_users {
   ];
 };
 
+sub ipkey {
+    my $ip = shift;
+    return "failip:$ip";
+}
+
 sub login_log {
   my ($self, $succeeded, $login, $ip, $user) = @_;
   my $user_id = $user && $user->{id};
 
   my $txn = $self->db->txn_scope;
 
+  $self->db->query(
+    'INSERT IGNORE INTO ip_login_failure SET ip = ?', $ip
+  );
+
   if ($succeeded) {
-    $self->db->query(
-      'UPDATE ip_login_failure SET cnt = 0 WHERE ip = ?',
-      $ip
-    );
+    $self->memd->set(ipkey($ip), 0);
     $self->db->query(
       'UPDATE users SET
         recent_login_failures_cnt = 0,
@@ -146,10 +163,8 @@ sub login_log {
       $ip, $user_id
     );
   } else {
-    $self->db->query(
-      'INSERT INTO ip_login_failure (`ip`, `cnt`) VALUES (?,1) ON DUPLICATE KEY UPDATE `cnt` = `cnt` + 1',
-      $ip
-    );
+    $self->memd->add(ipkey($ip), 0);
+    $self->memd->incr(ipkey($ip), 1);
     $self->db->query(
       'UPDATE users SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
       $user_id
