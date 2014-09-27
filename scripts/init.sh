@@ -3,6 +3,8 @@ set -x
 set -e
 cd $(dirname $0)
 
+sudo /etc/init.d/memcached restart
+
 myuser=root
 mydb=isu4_qualifier
 myhost=127.0.0.1

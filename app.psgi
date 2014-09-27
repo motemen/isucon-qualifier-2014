@@ -6,10 +6,15 @@ use Plack::Builder;
 use Isu4Qualifier::Web;
 use Plack::Session::State::Cookie;
 use Plack::Session::Store::File;
+use Data::MessagePack;
+use Cache::Memcached::Fast;
+use Plack::Session::Store::Cache;
 
 my $root_dir = File::Basename::dirname(__FILE__);
 my $session_dir = "/tmp/isu4_session_plack";
 mkdir $session_dir;
+
+my $mp = Data::MessagePack->new;
 
 my $app = Isu4Qualifier::Web->psgi($root_dir);
 builder {
@@ -32,8 +37,16 @@ builder {
       httponly    => 1,
       session_key => "isu4_session",
     ),
-    store => Plack::Session::Store::File->new(
-      dir         => $session_dir,
+    store => Plack::Session::Store::Cache->new(
+      cache => do {
+        Cache::Memcached::Fast->new({
+          servers => [ { address => 'localhost:11211' } ],
+          serialize_methods => [
+            sub { $mp->pack($_[0]) },
+            sub { $mp->unpack($_[0]) },
+          ],
+        })
+      },
     ),
     ;
   $app;
