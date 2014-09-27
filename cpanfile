@@ -10,3 +10,4 @@ requires "DBD::mysql";
 requires "Starlet";
 requires "Plack::Session";
 requires "Data::Dumper";
+requires 'Devel::NYTProf';
