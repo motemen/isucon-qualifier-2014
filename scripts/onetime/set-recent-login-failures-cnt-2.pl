@@ -45,3 +45,12 @@ for my $log (@$logs) {
         $cnt->{$user_id}++;
     }
 }
+
+foreach my $user_id (keys %$cnt) {
+    next if $finished->{$user_id};
+
+    $db->query(
+        'UPDATE users SET recent_login_failures_cnt = ? WHERE id = ?',
+        $cnt->{$user_id}, $user_id
+    );
+}
