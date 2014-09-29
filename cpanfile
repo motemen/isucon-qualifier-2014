@@ -12,4 +12,4 @@ requires "Starlet";
 requires "Plack::Session";
 requires "Data::Dumper";
 requires 'Devel::NYTProf';
-requires 'Cache::Memcached::Fast';
+requires 'Redis::Fast';

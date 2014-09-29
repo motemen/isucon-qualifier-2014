@@ -1,13 +1,13 @@
 package Isu4Qualifier::Web;
 
-use strict;
+use 5.010;
 use warnings;
 use utf8;
 use Kossy;
 use DBIx::Sunny;
 use Digest::SHA qw/ sha256_hex /;
 use Data::Dumper;
-use Cache::Memcached::Fast;
+use Redis::Fast;
 use Data::MessagePack;
 
 my $mp = Data::MessagePack->new;
@@ -20,15 +20,10 @@ sub config {
   };
 };
 
-sub memd {
-  my $self = shift;
-  $self->{_membed} ||= Cache::Memcached::Fast->new({
-    servers => [ { address => 'localhost:11211' } ],
-    serialize_methods => [
-      sub { $mp->pack($_[0]) },
-      sub { $mp->unpack($_[0]) },
-    ],
-  });
+sub redis {
+  state $redis = Redis::Fast->new(
+    sock => '/tmp/redis.sock',
+  );
 }
 
 sub db {
@@ -65,7 +60,7 @@ sub user_locked {
 
 sub ip_banned {
   my ($self, $ip) = @_;
-  my $count = $self->memd->get(ipkey($ip)) || 0;
+  my $count = redis->get($ip) || 0;
   $self->config->{ip_ban_threshold} <= $count;
 };
 
@@ -118,9 +113,8 @@ sub banned_ips {
   my ($self) = @_;
   my $threshold = $self->config->{ip_ban_threshold};
 
-  my $ip_failures = $self->db->select_all('SELECT ip FROM ip_login_failure');
   return [
-      grep { $self->memd->get(ipkey($_)) >= $threshold } map { $_->{ip} } @$ip_failures
+      grep { redis->get($_) >= $threshold } redis->keys('*')
   ];
 };
 
@@ -135,23 +129,12 @@ sub locked_users {
   ];
 };
 
-sub ipkey {
-    my $ip = shift;
-    return "failip:$ip";
-}
-
 sub login_log {
   my ($self, $succeeded, $login, $ip, $user) = @_;
   my $user_id = $user && $user->{id};
 
-  my $txn = $self->db->txn_scope;
-
-  $self->db->query(
-    'INSERT IGNORE INTO ip_login_failure SET ip = ?', $ip
-  );
-
   if ($succeeded) {
-    $self->memd->set(ipkey($ip), 0);
+    redis->del($ip);
     $self->db->query(
       'UPDATE users SET
         recent_login_failures_cnt = 0,
@@ -162,15 +145,12 @@ sub login_log {
       WHERE id = ?',
       $ip, $user_id
     );
-    $txn->commit;
   } else {
     $self->db->query(
       'UPDATE users SET recent_login_failures_cnt = recent_login_failures_cnt + 1 WHERE id = ?',
       $user_id
     ) if defined $user_id;
-    $txn->commit;
-    $self->memd->add(ipkey($ip), 0);
-    $self->memd->incr(ipkey($ip), 1);
+    redis->incr($ip);
   }
 };
 
