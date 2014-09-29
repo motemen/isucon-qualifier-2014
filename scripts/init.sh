@@ -3,7 +3,7 @@ set -x
 set -e
 cd $(dirname $0)
 
-sudo /etc/init.d/memcached restart
+redis-cli -s /tmp/redis.sock "flushdb"
 
 myuser=root
 mydb=isu4_qualifier
